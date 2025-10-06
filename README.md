@@ -1,6 +1,6 @@
-# 🌐 DimDim WebApp — Spring Boot + Azure SQL + Application Insights
+# 🌐 DimDim WebApp — Spring Boot + Azure SQL
 
-> 💡 Sistema web Java para gestão de **clientes e pedidos**, com persistência no **Azure SQL Database**, monitoramento via **Application Insights** e deploy automatizado no **Azure App Service**.
+> 💡 Sistema web Java para gestão de **clientes e pedidos**, com persistência no **Azure SQL Database** e deploy automatizado no **Azure App Service**.
 
 ---
 
@@ -51,21 +51,19 @@ dimdim-webapp-java/
 
 └─ dimdim_schema.sql
 
-
 ---
 
 ## ⚙️ Tecnologias Utilizadas
 
-| Categoria | Tecnologia |
-|------------|-------------|
-| ☕ Backend | Spring Boot 3.2 |
-| 🧩 ORM | Spring Data JPA |
-| 🗄️ Banco de Dados | Azure SQL Server |
-| 🧰 Build | Maven |
-| 📊 Monitoramento | Azure Application Insights |
-| 🔍 Health Check | Spring Boot Actuator |
-| 🚀 Deploy | Azure App Service |
-| 💬 Utilitário | Lombok (opcional) |
+| Categoria          | Tecnologia           |
+| ------------------ | -------------------- |
+| ☕ Backend          | Spring Boot 3.2      |
+| 🧩 ORM             | Spring Data JPA      |
+| 🗄️ Banco de Dados | Azure SQL Server     |
+| 🧰 Build           | Maven                |
+| 🔍 Health Check    | Spring Boot Actuator |
+| 🚀 Deploy          | Azure App Service    |
+| 💬 Utilitário      | Lombok (opcional)    |
 
 ---
 
@@ -102,10 +100,13 @@ dimdim-webapp-java/
 </dependencies>
 ```
 
-💾 Configuração do Banco de Dados
+---
 
-Arquivo: src/main/resources/application.properties
-```
+## 💾 Configuração do Banco de Dados
+
+**Arquivo:** `src/main/resources/application.properties`
+
+```properties
 spring.datasource.url=jdbc:sqlserver://<AZURE_SQL_SERVER>.database.windows.net:1433;database=<DB_NAME>;encrypt=true;trustServerCertificate=false;loginTimeout=30;
 spring.datasource.username=${DB_USER}
 spring.datasource.password=${DB_PASSWORD}
@@ -113,12 +114,15 @@ spring.datasource.password=${DB_PASSWORD}
 spring.jpa.hibernate.ddl-auto=validate
 spring.jpa.show-sql=true
 spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.SQLServerDialect
-```
+
 management.endpoints.web.exposure.include=health,info,metrics,prometheus
-
-
-🧠 Script DDL — ddl/dimdim_schema.sql
 ```
+
+---
+
+## 🧠 Script DDL — `ddl/dimdim_schema.sql`
+
+```sql
 CREATE TABLE cliente (
   id BIGINT IDENTITY(1,1) PRIMARY KEY,
   nome NVARCHAR(200) NOT NULL,
@@ -135,7 +139,9 @@ CREATE TABLE pedido (
 );
 ```
 
-🔧 Endpoints Principais (REST API)
+---
+
+## 🔧 Endpoints Principais (REST API)
 
 | Método   | Endpoint                           | Descrição                   |
 | -------- | ---------------------------------- | --------------------------- |
@@ -148,66 +154,58 @@ CREATE TABLE pedido (
 | `POST`   | `/api/pedidos`                     | Cria novo pedido            |
 | `GET`    | `/api/pedidos/cliente/{clienteId}` | Lista pedidos de um cliente |
 
-🧪 Exemplos de Requisições
-➕ Criar Cliente
-```
+---
+
+## 🧪 Exemplos de Requisições
+
+### ➕ Criar Cliente
+
+```bash
 curl -X POST https://<app>.azurewebsites.net/api/clientes \
  -H "Content-Type: application/json" \
  -d '{"nome":"João Silva","email":"joao@ex.com"}'
 ```
-📋 Listar Clientes
-```
+
+### 📋 Listar Clientes
+
+```bash
 curl https://<app>.azurewebsites.net/api/clientes
 ```
-🛠️ Criar Pedido
-```
+
+### 🛠️ Criar Pedido
+
+```bash
 curl -X POST https://<app>.azurewebsites.net/api/pedidos \
  -H "Content-Type: application/json" \
  -d '{"descricao":"Troca de óleo","custo":250.00,"cliente":{"id":1}}'
 ```
-☁️ Deploy no Azure (via IntelliJ)
 
-*Instale o plugin Azure Toolkit for IntelliJ
+---
 
-*Gere o .jar:
-```
-mvn clean package
-```
+## ☁️ Deploy no Azure (via IntelliJ)
 
-*Crie um App Service com runtime Java 17 (Java SE)
+1. **Instale o plugin** *Azure Toolkit for IntelliJ*
 
-*Configure variáveis de ambiente:
-```
-DB_USER
-```
-```
-DB_PASSWORD
-```
-```
-APPLICATIONINSIGHTS_CONNECTION_STRING
-```
-*Faça deploy pelo IntelliJ → Azure → Deploy Artifact
+2. **Gere o .jar:**
 
-Teste:
-```
-https://<seu-app>.azurewebsites.net/actuator/health
-```
-📊 Monitoramento com Application Insights
+   ```bash
+   mvn clean package
+   ```
 
-*Crie um recurso Application Insights no Azure
+3. **Crie um App Service** com runtime **Java 17 (Java SE)**
 
-*Copie a Connection String
+4. **Configure variáveis de ambiente:**
 
-*Adicione ao App Service:
+   ```bash
+   DB_USER=<seu_usuario>
+   DB_PASSWORD=<sua_senha>
+   ```
 
-APPLICATIONINSIGHTS_CONNECTION_STRING = InstrumentationKey=...
+5. **Faça deploy pelo IntelliJ → Azure → Deploy Artifact**
 
+6. **Teste:**
 
-*Faça upload do applicationinsights-agent.jar
+   ```bash
+   https://<seu-app>.azurewebsites.net/actuator/health
+   ```
 
-*Adicione JVM Option:
-
--javaagent:/home/site/wwwroot/applicationinsights-agent.jar
-
-
-*Verifique métricas, requisições e exceções diretamente no portal do Azure.
