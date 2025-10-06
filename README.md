@@ -167,24 +167,26 @@ curl -X POST https://<app>.azurewebsites.net/api/pedidos \
 ```
 ☁️ Deploy no Azure (via IntelliJ)
 
-Instale o plugin Azure Toolkit for IntelliJ
+*Instale o plugin Azure Toolkit for IntelliJ
 
-Gere o .jar:
-
+*Gere o .jar:
+```
 mvn clean package
+```
 
+*Crie um App Service com runtime Java 17 (Java SE)
 
-Crie um App Service com runtime Java 17 (Java SE)
-
-Configure variáveis de ambiente:
-
+*Configure variáveis de ambiente:
+```
 DB_USER
-
+```
+```
 DB_PASSWORD
-
+```
+```
 APPLICATIONINSIGHTS_CONNECTION_STRING
-
-Faça deploy pelo IntelliJ → Azure → Deploy Artifact
+```
+*Faça deploy pelo IntelliJ → Azure → Deploy Artifact
 
 Teste:
 ```
@@ -192,20 +194,20 @@ https://<seu-app>.azurewebsites.net/actuator/health
 ```
 📊 Monitoramento com Application Insights
 
-Crie um recurso Application Insights no Azure
+*Crie um recurso Application Insights no Azure
 
-Copie a Connection String
+*Copie a Connection String
 
-Adicione ao App Service:
+*Adicione ao App Service:
 
 APPLICATIONINSIGHTS_CONNECTION_STRING = InstrumentationKey=...
 
 
-Faça upload do applicationinsights-agent.jar
+*Faça upload do applicationinsights-agent.jar
 
-Adicione JVM Option:
+*Adicione JVM Option:
 
 -javaagent:/home/site/wwwroot/applicationinsights-agent.jar
 
 
-Verifique métricas, requisições e exceções diretamente no portal do Azure.
+*Verifique métricas, requisições e exceções diretamente no portal do Azure.
