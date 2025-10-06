@@ -1,0 +1,174 @@
+01) Configurar banco: Azure SQL (criar recursos) — comandos (Azure CLI)
+
+$RG="rg-dimdim"
+$LOCATION="brazilsouth"
+$SQL_SERVER="dimdim-sqlsrv"
+$SQL_ADMIN="sqladmin"
+$SQL_PASS="StrongPassword1!"
+$DB_NAME="dimdimdb"
+$APP_PLAN="plan-dimdim"
+$WEBAPP="dimdim-webapp"
+
+az login
+
+# 1. Resource group
+az group create -n $RG -l $LOCATION
+
+# 2. SQL Server
+az sql server create -g $RG -n $SQL_SERVER -l $LOCATION -u $SQL_ADMIN -p $SQL_PASS
+
+# 3. Database
+az sql db create -g $RG -s $SQL_SERVER -n $DB_NAME --service-objective S0
+
+# 4. Allow your IP
+$MY_IP = (Invoke-RestMethod -Uri "https://ipinfo.io/ip").Trim()
+az sql server firewall-rule create -g $RG -s $SQL_SERVER -n AllowMyIP --start-ip-address $MY_IP --end-ip-address $MY_IP
+
+# 5. Allow Azure Services (IMPORTANTE)
+az sql server firewall-rule create -g $RG -s $SQL_SERVER -n AllowAzureServices --start-ip-address 0.0.0.0 --end-ip-address 0.0.0.0
+
+# 6. App Service Plan + Web App
+az appservice plan create -g $RG -n $APP_PLAN --is-linux --sku B2
+az webapp create -g $RG -p $APP_PLAN -n $WEBAPP --runtime "JAVA:17-java17"
+
+echo "SQL_SERVER=$SQL_SERVER DB_NAME=$DB_NAME WEBAPP=$WEBAPP RG=$RG"
+
+02) Aplicar DDL no Azure SQL
+
+$SQL_SERVER="dimdim-sqlsrv.database.windows.net"
+$DB_NAME="dimdimdb"
+$USER="sqladmin"
+$PASS="StrongPassword1!"
+
+# Usando sqlcmd - aplicar DDL
+sqlcmd -S $SQL_SERVER -U $USER -P $PASS -d $DB_NAME -i ddl_dimdim.sql
+
+# Verificar tabelas criadas
+sqlcmd -S $SQL_SERVER -U $USER -P $PASS -d $DB_NAME -Q "SELECT name FROM sys.tables"
+03) Configurar Spring Boot para usar Azure SQL
+application.properties:
+
+properties
+# Datasource Configuration
+spring.datasource.url=${SPRING_DATASOURCE_URL}
+spring.datasource.username=${DB_USER}
+spring.datasource.password=${DB_PASSWORD}
+
+# JPA Configuration - USAR UPDATE PARA PRIMEIRO DEPLOY
+spring.jpa.hibernate.ddl-auto=update
+spring.jpa.show-sql=true
+spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.SQLServerDialect
+spring.jpa.properties.hibernate.format_sql=true
+
+# Server Configuration
+server.port=8080
+
+# Logging (para debugging)
+logging.level.com.dimdim=DEBUG
+logging.level.org.springframework.web=DEBUG
+logging.level.org.hibernate.SQL=DEBUG
+
+# Actuator (health check básico)
+management.endpoints.web.exposure.include=health,info
+management.endpoint.health.show-details=Always
+
+Configurar App Service Settings:
+
+
+az webapp config appsettings set --name dimdim-webapp --resource-group rg-dimdim --settings `
+  WEBSITES_PORT=8080 `
+  JAVA_OPTS="-Dserver.port=8080" `
+  SPRING_DATASOURCE_URL="jdbc:sqlserver://dimdim-sqlsrv.database.windows.net;database=dimdimdb;encrypt=true;trustServerCertificate=false;hostNameInCertificate=*.database.windows.net;loginTimeout=30;" `
+  DB_USER="sqladmin@dimdim-sqlsrv" `
+  DB_PASSWORD="StrongPassword1!" `
+  SPRING_JPA_HIBERNATE_DDL_AUTO="update" `
+  SPRING_JPA_SHOW_SQL="true"
+
+04) Build e Deploy da Aplicação
+powershell
+# 1. Build do projeto
+mvn clean package -DskipTests
+
+# 2. Verificar se o JAR foi criado
+ls -la target/dimdim_webapp-0.0.1-SNAPSHOT.jar
+
+# 3. Fazer deploy no Azure
+az webapp deploy --resource-group rg-dimdim --name dimdim-webapp --src-path target/dimdim_webapp-0.0.1-SNAPSHOT.jar --type jar --verbose
+
+# 4. Monitorar deploy (aguardar "Site started successfully")
+Se houver problemas no deploy:
+
+powershell
+# Verificar logs em tempo real
+az webapp log tail --name dimdim-webapp --resource-group rg-dimdim
+
+# Se travar no "Starting the site", reiniciar:
+az webapp stop --name dimdim-webapp --resource-group rg-dimdim
+Start-Sleep -Seconds 10
+az webapp start --name dimdim-webapp --resource-group rg-dimdim
+Start-Sleep -Seconds 30
+
+# Verificar status
+az webapp show --name dimdim-webapp --resource-group rg-dimdim --query "{state: state, status: status}"
+05) Health Check e Configuração Final
+powershell
+# Testar se a aplicação está respondendo
+curl -v https://dimdim-webapp.azurewebsites.net/actuator/health
+
+# Se não responder, verificar configurações:
+az webapp config appsettings list --name dimdim-webapp --resource-group rg-dimdim --output table
+
+# Configurar JPA para validate após primeiro deploy bem-sucedido
+az webapp config appsettings set --name dimdim-webapp --resource-group rg-dimdim --settings SPRING_JPA_HIBERNATE_DDL_AUTO=validate
+06) Testar Persistência - Endpoints no Postman
+Health Check:
+
+text
+GET https://dimdim-webapp.azurewebsites.net/actuator/health
+Criar Cliente:
+
+text
+POST https://dimdim-webapp.azurewebsites.net/api/clientes
+Content-Type: application/json
+
+{
+  "nome": "João Silva",
+  "email": "joao.silva@email.com"
+}
+Listar Clientes:
+
+text
+GET https://dimdim-webapp.azurewebsites.net/api/clientes
+Criar Pedido:
+
+text
+POST https://dimdim-webapp.azurewebsites.net/api/pedidos
+Content-Type: application/json
+
+{
+  "descricao": "Notebook Dell",
+  "valor": 2850.90,
+  "clienteId": 1
+}
+Listar Pedidos:
+
+GET https://dimdim-webapp.azurewebsites.net/api/pedidos
+
+07) Verificar Dados no Banco
+
+# Via sqlcmd
+sqlcmd -S dimdim-sqlsrv.database.windows.net -U sqladmin -P "StrongPassword1!" -d dimdimdb -Q "SELECT * FROM cliente"
+sqlcmd -S dimdim-sqlsrv.database.windows.net -U sqladmin -P "StrongPassword1!" -d dimdimdb -Q "SELECT * FROM pedido"
+
+# Ou usar Azure Data Studio/SSMS
+
+08) Monitoramento e Logs
+
+# Logs em tempo real
+az webapp log tail --name dimdim-webapp --resource-group rg-dimdim
+
+# Acessar Kudu para diagnóstico avançado
+# https://dimdim-webapp.scm.azurewebsites.net
+
+# Verificar métricas básicas
+az webapp show --name dimdim-webapp --resource-group rg-dimdim --query "{name: name, state: state, defaultHostName: defaultHostName, enabled: enabled}"
